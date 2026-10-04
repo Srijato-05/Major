@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Adaptive Multi-Modal AI E-Waste Pneumatic Sorting Digital Twin</title>
+  <link rel="stylesheet" href="/static/css/dashboard.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="dashboard-container">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-title-box">
+        <h1>Adaptive Multi-Modal AI E-Waste Sorting Digital Twin</h1>
+        <div class="header-subtitle">
+          Real-Time Multimodal RGB + NIR/SWIR Perception | EU WEEE Directive Annex VII & CPCB EPR Regulatory Simulator
+        </div>
+      </div>
+      <div style="display: flex; gap: 10px; align-items: center;">
+        <span class="tag" style="background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald); border: 1px solid rgba(16, 185, 129, 0.3); font-weight: 600; padding: 6px 12px; border-radius: 20px; font-size: 12px;">
+          ⚡ NVIDIA GeForce GTX 1650 CUDA ON
+        </span>
+        <span class="badge-live">
+          <span class="pulse-dot"></span>
+          <span id="connection-status">INITIALIZING...</span>
+        </span>
+      </div>
+    </header>
+
+    <!-- Main Grid -->
+    <div class="grid-main">
+      <!-- Left Column: Conveyor Viewport & Controls -->
+      <section class="glass-card">
+        <div class="card-header">
+          <div class="card-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            Live Conveyor Inspection Feed (Real Benchmark Stream)
+          </div>
+          <div>
+            <span class="tag tag-pcb" id="conveyor-mode-tag">MODE: CONTINUOUS DATASET STREAM</span>
+          </div>
+        </div>
+
+        <div class="viewport-wrapper">
+          <img id="stream-canvas" class="viewport-stream" src="/static/placeholder_conveyor.png" alt="Conveyor Inspection Viewport">
+          <div class="stream-overlay-kpi">
+            <span class="stream-chip" id="overlay-fps">-- FPS</span>
+            <span class="stream-chip" id="overlay-latency">-- ms</span>
+            <span class="stream-chip" style="color: #00f2fe;">OPTICAL FOV: 1000 x 1200 mm</span>
+          </div>
+        </div>
+
+        <!-- Interactive Control Bar -->
+        <div class="control-bar">
+          <button class="btn btn-secondary" id="btn-pause">Pause Stream</button>
+
+          <div class="slider-group">
+            <label for="slider-speed">Belt Speed (v_belt):</label>
+            <input type="range" id="slider-speed" min="1.0" max="4.0" step="0.1" value="2.5">
+            <span id="speed-val" style="font-weight: 600; min-width: 55px; color: #00f2fe;">2.5 m/s</span>
+          </div>
+
+          <div class="slider-group">
+            <label for="slider-conf">Detection Conf:</label>
+            <input type="range" id="slider-conf" min="0.1" max="0.9" step="0.05" value="0.35">
+            <span id="conf-val" style="font-weight: 600; min-width: 45px; color: #10b981;">35%</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right Column: Industrial Telemetry & Accounting -->
+      <section class="glass-card">
+        <div class="card-header">
+          <div class="card-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            Live Industrial Telemetry & KPIs
+          </div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-box">
+            <div class="stat-label">Instant Throughput</div>
+            <div class="stat-value" id="stat-throughput">0.00 t/h</div>
+            <div class="stat-sub neutral" id="stat-throughput-kg">0.0 kg/h</div>
+          </div>
+
+          <div class="stat-box">
+            <div class="stat-label">Items Sorted</div>
+            <div class="stat-value" id="stat-total-items">0</div>
+            <div class="stat-sub positive" id="stat-annex-vii">0 Annex VII</div>
+          </div>
+
+          <div class="stat-box">
+            <div class="stat-label">Net Economic Rate</div>
+            <div class="stat-value positive" id="stat-net-profit">€0.00</div>
+            <div class="stat-sub positive" id="stat-net-rate">€0.00/hr</div>
+          </div>
+
+          <div class="stat-box">
+            <div class="stat-label">Gross Commodity Revenue</div>
+            <div class="stat-value" id="stat-gross-revenue">€0.00</div>
+            <div class="stat-sub neutral">Recovered Scrap Value</div>
+          </div>
+
+          <div class="stat-box">
+            <div class="stat-label">Energy Consumed</div>
+            <div class="stat-value" id="stat-energy">0.000 kWh</div>
+            <div class="stat-sub neutral" id="stat-energy-cost">Cost: €0.00</div>
+          </div>
+
+          <div class="stat-box">
+            <div class="stat-label">Pipeline Latency</div>
+            <div class="stat-value" id="stat-latency">-- ms</div>
+            <div class="stat-sub neutral">Execution Latency</div>
+          </div>
+
+          <div class="stat-box" style="grid-column: span 2; background: rgba(0, 242, 254, 0.03); border-color: rgba(0, 242, 254, 0.2);">
+            <div class="stat-label" style="color: var(--accent-cyan); font-weight: 700;">AI Perception & Model Accuracy Benchmark (GTX 1650 Optimized)</div>
+            <div style="display: flex; justify-content: space-between; margin-top: 10px; font-size: 13px;">
+              <div><span>Polymer Recall:</span> <strong style="color: var(--accent-emerald);" id="m-poly-rec">99.07%</strong></div>
+              <div><span>Pixel Accuracy:</span> <strong style="color: #ffffff;" id="m-oa">97.51%</strong></div>
+              <div><span>Polymer IoU:</span> <strong style="color: var(--accent-cyan);" id="m-poly-iou">90.08%</strong></div>
+              <div><span>Polymer F1 / Dice:</span> <strong style="color: var(--accent-purple);" id="m-poly-f1">94.78%</strong></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Custom Image / Video Upload Area -->
+        <div style="margin-top: 20px;">
+          <div class="card-title" style="font-size: 14px; margin-bottom: 8px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Upload Custom Image or Video
+          </div>
+          <div class="upload-dropzone" id="dropzone">
+            <p style="font-size: 13px; color: var(--text-muted);">
+              Drag & Drop an image (.png, .jpg) or video (.mp4) here, or <span style="color: var(--accent-cyan); text-decoration: underline;">browse files</span>
+            </p>
+            <input type="file" id="file-input" style="display: none;" accept="image/*,video/*">
+            <div id="upload-status" style="font-size: 12px; margin-top: 6px; color: var(--accent-cyan);"></div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Bottom Section: Itemized Inspection Feed -->
+    <section class="glass-card">
+      <div class="card-header">
+        <div class="card-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          Live Sorted E-Waste Inspection Stream & Material Recovery Log
+        </div>
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Track ID</th>
+              <th>Class Label</th>
+              <th>AI Confidence</th>
+              <th>Metric Area</th>
+              <th>Estimated Mass</th>
+              <th>Target Destination Bin</th>
+              <th>Scrap Value</th>
+              <th>Regulatory Status</th>
+            </tr>
+          </thead>
+          <tbody id="inspection-tbody">
+            <!-- Dynamically populated via WebSocket -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <script src="/static/js/dashboard.js"></script>
+</body>
+</html>

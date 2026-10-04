@@ -1,0 +1,39 @@
+# Conveyor Belt & Optical Geometry Parameters
+# Easily tunable parameters for industrial conveyor simulation
+
+conveyor:
+  # Belt linear speed (meters per second)
+  # Standard industrial range: 1.0 m/s to 4.0 m/s
+  speed_mps: 2.5
+  min_speed_mps: 1.0
+  max_speed_mps: 4.0
+
+  # Physical conveyor belt dimensions in millimeters
+  belt_width_mm: 1000.0          # 1.0 meter width
+  inspection_length_mm: 1500.0   # 1.5 meter optical inspection zone length
+  sampling_rate_fps: 60          # Industrial camera frame acquisition rate (FPS)
+
+  # Material flow & kinematics
+  conveyor_direction: "downstream" # "downstream" (y-positive) or "reverse"
+  belt_friction_coefficient: 0.65
+  belt_slip_noise_std: 0.02      # Small stochastic belt speed jitter (2%)
+
+optical_geometry:
+  # Spatial resolution: metric millimeters per camera pixel
+  # Calibrated via Planar Homography (H) from ArUco targets
+  scale_x_mm_per_px: 1.5625
+  scale_y_mm_per_px: 1.5625
+  origin_offset_x_mm: 0.0
+  origin_offset_y_mm: 0.0
+
+  # Camera field-of-view dimensions
+  fov_width_mm: 1000.0
+  fov_length_mm: 1200.0
+  camera_mounting_height_mm: 850.0
+
+pneumatics:
+  # Virtual air-jet ejection line position (distance downstream from camera in mm)
+  ejection_line_x_mm: 1200.0
+  actuation_lag_ms: 2.5          # Solenoid valve + air travel delay
+  solenoid_pitch_mm: 15.625      # Pitch for 64-nozzle manifold spanning 1000 mm
+  total_nozzles: 64

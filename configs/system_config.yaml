@@ -1,0 +1,140 @@
+# System Configuration: Adaptive Multi-Modal AI E-Waste Sorting Simulation
+
+system:
+  project_name: "adaptive-multimodal-ewaste-sorting"
+  version: "1.0.0"
+  random_seed: 42
+  device: "cuda"  # "cuda" or "cpu"
+
+conveyor:
+  default_speed_mps: 2.5       # Default belt speed: 2.5 m/s (Configurable 1.0 - 4.0 m/s)
+  speed_range_mps: [1.0, 4.0]
+  belt_width_mm: 1000.0        # 1.0 meter width
+  inspection_length_mm: 1500.0 # 1.5 meter inspection zone length
+  sampling_rate_fps: 60        # Frame rate in FPS
+
+camera:
+  rgb_resolution: [1200, 1184]
+  spectral_resolution: [600, 640]  # NIR/SWIR sensor resolution
+  input_tensor_shape: [4, 640, 640] # Resized 4-channel model input: [C, H, W]
+  fov_width_mm: 1000.0
+  fov_length_mm: 1200.0
+
+homography:
+  # Metric mapping coefficients (pixels -> conveyor mm)
+  # Calibrated via DLT from camera field of view
+  scale_x_mm_per_px: 1.5625
+  scale_y_mm_per_px: 1.5625
+  origin_offset_x_mm: 0.0
+  origin_offset_y_mm: 0.0
+
+taxonomy:
+  classes:
+    0:
+      name: "High-Grade PCB"
+      value_eur_per_kg: 30.00      # Range €15 - €45
+      density_g_cm3: 2.2           # Range 1.8 - 2.6
+      thickness_mm: 1.6
+      priority: "HIGH"
+      regulatory_flag: "ANNEX_VII"
+      target_bin: "BIN_PCB_RECOVERY"
+
+    1:
+      name: "IC Molds & Chips"
+      value_eur_per_kg: 115.00     # Range €50 - €180
+      density_g_cm3: 1.9           # Range 1.6 - 2.2
+      thickness_mm: 2.5
+      priority: "HIGH"
+      regulatory_flag: "CRITICAL_RAW_MATERIALS"
+      target_bin: "BIN_IC_RECOVERY"
+
+    2:
+      name: "Battery Pack Units"
+      value_eur_per_kg: 8.50       # Range €5 - €12
+      density_g_cm3: 2.85          # Range 2.2 - 3.5
+      thickness_mm: 8.0
+      priority: "CRITICAL_HAZARDOUS"
+      regulatory_flag: "ANNEX_VII_EXPLOSIVE"
+      target_bin: "BIN_BATTERY_ISOLATION"
+
+    3:
+      name: "BFR Polymers"
+      value_eur_per_kg: -0.12      # Disposal cost liability (-€0.20 to -€0.05)
+      density_g_cm3: 1.22          # Range 1.05 - 1.40
+      thickness_mm: 2.0
+      priority: "CRITICAL_HAZARDOUS"
+      regulatory_flag: "ROHS_BFR_HAZARDOUS"
+      target_bin: "BIN_BFR_DECONTAMINATION"
+
+    4:
+      name: "Metallic Heat Sinks"
+      value_eur_per_kg: 4.15       # Range €1.80 - €6.50 (Al/Cu scrap)
+      density_g_cm3: 5.83          # Range 2.70 - 8.96
+      thickness_mm: 15.0
+      priority: "MEDIUM"
+      regulatory_flag: "SECONDARY_METAL"
+      target_bin: "BIN_METALS_RECOVERY"
+
+    5:
+      name: "Copper Wire Harnesses"
+      value_eur_per_kg: 5.85       # Range €4.50 - €7.20
+      density_g_cm3: 2.15          # Range 1.3 - 3.0
+      thickness_mm: 5.0
+      priority: "MEDIUM"
+      regulatory_flag: "ANNEX_VII_CABLE"
+      target_bin: "BIN_COPPER_RECOVERY"
+
+  # Dynamic remapping from raw dataset IDs to target industrial classes
+  # 0 is always reserved for BACKGROUND
+  dataset_mappings:
+    spectralwaste:
+      0: 0   # conveyor / background
+      1: 3   # film -> BFR Polymers (polymeric fraction)
+      2: 4   # basket -> Metallic Heat Sinks / Rigid housing
+      3: 1   # cardboard -> IC Molds & Packaging
+      4: 5   # video_tape -> Copper Wire Harnesses / tape coils
+      5: 5   # filament -> Copper Wire / wires
+      6: 3   # bag -> BFR Polymers
+
+model:
+  architecture: "yolo_v8_seg_4ch"
+  backbone_pretrained: "yolov8m-seg.pt"
+  num_classes: 6
+  in_channels: 4
+  img_size: 640
+  conf_threshold: 0.35
+  iou_threshold: 0.50
+  max_det: 100
+
+training:
+  stage1_freeze_epochs: 10
+  stage1_lr: 0.001
+  stage2_unfreeze_epochs: 100
+  stage2_lr_max: 0.0001
+  stage2_lr_min: 0.000001
+  batch_size: 8
+  weight_decay: 0.0005
+  loss_weights:
+    lambda_box: 7.5
+    lambda_dfl: 1.5
+    lambda_cls: 0.5
+    lambda_mask: 2.5
+  augmentations:
+    blur_prob: 0.5
+    glare_prob: 0.4
+    dust_prob: 0.3
+    cutout_prob: 0.3
+    angular_jitter_deg: 2.0
+    max_cutout_ratio: 0.30
+
+tracking:
+  tracker_type: "bytetrack"
+  track_thresh: 0.5        # High-confidence stage 1 threshold
+  track_buffer: 30         # Frames to keep lost tracklets alive
+  match_thresh: 0.8        # IoU distance match threshold
+  min_box_area: 50         # Minimum pixel area
+
+telemetry:
+  window_seconds: 10       # Rolling calculation window
+  cost_electricity_eur_kwh: 0.22
+  conveyor_power_kw: 4.5

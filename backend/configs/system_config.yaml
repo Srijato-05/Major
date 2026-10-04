@@ -1,0 +1,47 @@
+system:
+  project_name: "adaptive-ewaste-sorter"
+  version: "2.0.0"
+  random_seed: 42
+  device: "cuda:0" # Fallback to "cpu" if CUDA unavailable
+
+sensor:
+  modality: "RGB_NIR_FUSION" # Options: ["RGB", "NIR", "RGB_NIR_FUSION"]
+  input_resolution: [640, 640] # [height, width]
+  fps: 60
+  camera_mount_angle_deg: 15.0 # Angle off nadir
+
+conveyor:
+  speed_m_per_s: 2.5 # Parametric: 0.5 to 4.0 m/s
+  belt_width_m: 0.8
+  belt_length_visible_m: 1.2
+  encoder_mode: "FIXED_PARAM" # Options: ["FIXED_PARAM", "DYNAMIC_ENCODER"]
+  encoder_ticks_per_meter: 10000
+
+pneumatic_actuator:
+  ejection_line_distance_m: 1.5 # Distance from camera FOV top to air-jet manifold
+  num_valves: 16 # Number of discrete pneumatic air nozzles
+  valve_spacing_m: 0.05 # 50mm nozzle pitch
+  solenoid_response_delay_ms: 12.0 # Inherent physical solenoid lag
+  air_pulse_duration_ms: 25.0 # Duration of air blast
+  target_ejection_classes: [1, 4, 5] # ICs, Gold Fingers, Batteries
+
+model:
+  architecture: "yolov11n-seg" # Options: ["yolov8n-seg", "yolov11n-seg"]
+  num_classes: 6
+  in_channels: 4 # Dynamic: 3 for RGB/NIR, 4 for FUSION
+  conf_threshold: 0.45
+  iou_threshold: 0.50
+  precision: "FP16" # Options: ["FP32", "FP16", "INT8"]
+  engine_path: "weights/best_yolo11n_seg_4ch.engine"
+  onnx_path: "weights/best_yolo11n_seg_4ch.onnx"
+
+tracking:
+  algorithm: "ByteTrack"
+  track_thresh: 0.50
+  match_thresh: 0.75
+  track_buffer: 45
+
+homography:
+  # Pixel points (u, v) mapped to conveyor metric plane (x_m, y_m)
+  source_pixel_points: [[42, 38], [598, 40], [630, 610], [10, 608]]
+  destination_world_points: [[0.0, 0.0], [0.8, 0.0], [0.8, 1.2], [0.0, 1.2]]
