@@ -40,8 +40,13 @@ class ConveyorDigitalTwinSimulator:
         from collections import deque
         self.sorted_history = deque(maxlen=30)
 
-        # Dataset stream iterator
-        self.dataset = SpectralWasteDataset(is_training=False)
+        # Combined dataset stream iterator: 852 SpectralWaste + 944 Battery Pack units
+        from src.data.multimodal_dataset import CombinedEWasteDataset
+        self.dataset = CombinedEWasteDataset(
+            spectral_dir="data/raw/spectralwaste",
+            battery_dir="data/raw/battery_packs",
+            is_training=False
+        )
         self.current_frame_idx = 0
 
     def process_frame(
