@@ -15,16 +15,17 @@ class ModelEvaluationSuite:
     - False Positive Rate (FPR) for hazardous classes (BFR polymers, Battery packs)
     """
 
-    def __init__(self, num_classes: int = 6, class_names: Dict[int, str] = None, ignore_index: int = -1):
+    def __init__(self, num_classes: int = 7, class_names: Dict[int, str] = None, ignore_index: int = -1):
         self.num_classes = num_classes
         self.ignore_index = ignore_index
         self.class_names = class_names or {
-            0: "High-Grade PCB",
-            1: "IC Molds & Chips",
-            2: "Battery Pack Units",
-            3: "BFR Polymers",
-            4: "Metallic Heat Sinks",
-            5: "Copper Wire Harnesses"
+            0: "Conveyor Background",
+            1: "High-Grade PCB",
+            2: "IC Molds & Chips",
+            3: "Battery Pack Units",
+            4: "BFR Polymers",
+            5: "Metallic Heat Sinks",
+            6: "Copper Wire Harnesses"
         }
         self.confusion_matrix = np.zeros((num_classes, num_classes), dtype=np.int64)
 
@@ -69,12 +70,15 @@ class ModelEvaluationSuite:
 
         # Per-class IoU: TP / (TP + FP + FN)
         denominator = tp + fp + fn
-        iou_per_class = np.where(denominator > 0, tp / denominator, 0.0)
+        iou_per_class = np.divide(tp, denominator, out=np.zeros_like(tp, dtype=np.float64), where=denominator > 0)
 
         # Precision & Recall
-        precision = np.where((tp + fp) > 0, tp / (tp + fp), 0.0)
-        recall = np.where((tp + fn) > 0, tp / (tp + fn), 0.0)
-        f1_score = np.where((precision + recall) > 0, 2 * (precision * recall) / (precision + recall), 0.0)
+        prec_den = tp + fp
+        rec_den = tp + fn
+        precision = np.divide(tp, prec_den, out=np.zeros_like(tp, dtype=np.float64), where=prec_den > 0)
+        recall = np.divide(tp, rec_den, out=np.zeros_like(tp, dtype=np.float64), where=rec_den > 0)
+        f1_den = precision + recall
+        f1_score = np.divide(2.0 * precision * recall, f1_den, out=np.zeros_like(precision, dtype=np.float64), where=f1_den > 0)
 
         # Classes that actually appeared in the target ground truth
         valid_classes = cm.sum(axis=1) > 0

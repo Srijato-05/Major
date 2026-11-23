@@ -4,7 +4,7 @@ An end-to-end, real-time industrial digital twin simulating an automated pneumat
 
 Built using:
 - **4-Channel Tensor Fusion**: Synchronized high-resolution spatial RGB + Short-Wave Infrared (SWIR / NIR) reflectance bands.
-- **Deep Multimodal Segmentation**: DeepLabV3+ with ResNet-50 backbone adapted via tensor weight inflation ($C_{\text{in}} = 4$).
+- **Deep Multimodal Segmentation**: DeepLabV3 with ResNet-50 backbone adapted via tensor weight inflation ($C_{\text{in}} = 4$).
 - **Multi-Class Industrial Taxonomy**: Comprehensive classification of High-Grade PCBs, IC Molds & Packaging, Li-Ion Battery Packs, BFR Polymers, Metallic Heat Sinks, and Copper Wire Harnesses.
 - **ReID-Free Real-Time MOT**: High-speed ByteTrack association across conveyor movement.
 - **Planar Homography Kinematics**: Metric 2D transform projecting image coordinates to real-world conveyor millimeters and mass estimation.

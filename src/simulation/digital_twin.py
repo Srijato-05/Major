@@ -24,16 +24,22 @@ class ConveyorDigitalTwinSimulator:
 
     def __init__(
         self,
-        weights_path: Optional[str] = "models/checkpoints/multimodal_4ch_latest.pth",
+        weights_path: Optional[str] = None,
         belt_speed_mps: Optional[float] = None
     ):
+        if weights_path is None:
+            import os
+            best_chk = "models/checkpoints/multimodal_4ch_best.pth"
+            latest_chk = "models/checkpoints/multimodal_4ch_latest.pth"
+            weights_path = best_chk if os.path.exists(best_chk) else latest_chk
         self.kinematics = ConveyorKinematicsEngine(speed_mps=belt_speed_mps)
         self.inference_engine = MultimodalInferenceEngine(weights_path=weights_path)
         self.tracker = ByteTracker()
         self.decision_engine = AdvancedSortingDecisionEngine()
         self.telemetry = AdvancedTelemetryEngine()
         from src.models.evaluation_suite import ModelEvaluationSuite
-        self.evaluator = ModelEvaluationSuite(num_classes=6)
+        num_classes = CONFIG.get("model", {}).get("num_classes", 7)
+        self.evaluator = ModelEvaluationSuite(num_classes=num_classes)
 
         # Track history to prevent double-sorting the same item ID
         self.evaluated_track_ids = set()

@@ -44,7 +44,7 @@ DEFAULT_FALLBACKS: Dict[str, Any] = {
     },
     "model": {
         "architecture": "multimodal_4ch_deeplabv3",
-        "num_classes": 6,
+        "num_classes": 7,
         "in_channels": 4,
         "img_size": 640,
         "conf_threshold": 0.35,

@@ -123,11 +123,12 @@ function updateDashboard(payload) {
 
 function getTagClass(cid) {
     switch (cid) {
-        case 0: return "tag-pcb";
-        case 1: return "tag-ic";
-        case 2: return "tag-battery";
-        case 3: return "tag-bfr";
-        case 4: return "tag-metal";
+        case 1: return "tag-pcb";
+        case 2: return "tag-ic";
+        case 3: return "tag-battery";
+        case 4: return "tag-bfr";
+        case 5:
+        case 6:
         default: return "tag-metal";
     }
 }

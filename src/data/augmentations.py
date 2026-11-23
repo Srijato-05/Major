@@ -18,7 +18,9 @@ class IndustrialMultimodalAugmentation:
         blur_prob: Optional[float] = None,
         glare_prob: Optional[float] = None,
         dust_prob: Optional[float] = None,
-        cutout_prob: Optional[float] = None
+        cutout_prob: Optional[float] = None,
+        hflip_prob: float = 0.5,
+        vflip_prob: float = 0.5
     ):
         from src.utils.config_loader import CONFIG
         aug_cfg = CONFIG.get("training", {}).get("augmentations", {})
@@ -29,6 +31,8 @@ class IndustrialMultimodalAugmentation:
         self.glare_prob = glare_prob if glare_prob is not None else aug_cfg.get("glare_prob", 0.4)
         self.dust_prob = dust_prob if dust_prob is not None else aug_cfg.get("dust_prob", 0.3)
         self.cutout_prob = cutout_prob if cutout_prob is not None else aug_cfg.get("cutout_prob", 0.3)
+        self.hflip_prob = hflip_prob
+        self.vflip_prob = vflip_prob
 
     def apply_motion_blur(self, image_4ch: np.ndarray) -> np.ndarray:
         """
@@ -108,6 +112,15 @@ class IndustrialMultimodalAugmentation:
     def __call__(self, image_4ch: np.ndarray, mask: np.ndarray = None) -> Dict[str, np.ndarray]:
         out = image_4ch.copy()
         out_mask = mask.copy() if mask is not None else None
+
+        if random.random() < self.hflip_prob:
+            out = cv2.flip(out, 1)
+            if out_mask is not None:
+                out_mask = cv2.flip(out_mask, 1)
+        if random.random() < self.vflip_prob:
+            out = cv2.flip(out, 0)
+            if out_mask is not None:
+                out_mask = cv2.flip(out_mask, 0)
 
         if random.random() < self.blur_prob:
             out = self.apply_motion_blur(out)

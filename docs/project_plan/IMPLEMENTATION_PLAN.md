@@ -147,3 +147,6 @@ flowchart TD
 5. [x] **Phase 4: ByteTrack Multi-Object Tracking & Conveyor Kinematics Engine** (Conveyor Kalman filter, 2-stage ByteTrack association, dynamic metric trajectory projection)
 6. [x] **Phase 5: Advanced Sorting Decision Engine & Digital Twin Simulation** (Annex VII mandatory de-pollution thresholds, CPCB EPR penalties, energy & PnL accounting, end-to-end simulator)
 7. [x] **Phase 6: High-Performance Interactive UI Simulation Dashboard** (Glassmorphism dark UI, live WebSocket streaming, speed & confidence sliders, drag-and-drop media upload, itemized inspection feed)
+
+> [!NOTE]
+> Following a post-implementation audit, remaining dataset, training, validation, physics, and UI gaps are tracked in the [Project Completion Roadmap](ROADMAP.md).

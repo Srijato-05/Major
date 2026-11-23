@@ -14,7 +14,7 @@ class Multimodal4ChSegmentationModel(nn.Module):
 
     def __init__(
         self,
-        num_classes: int = 6,
+        num_classes: int = 7,
         in_channels: int = 4,
         pretrained: bool = True
     ):
@@ -85,7 +85,7 @@ def build_4channel_segmentation_model(
     from src.utils.config_loader import CONFIG
 
     if num_classes is None:
-        num_classes = CONFIG.get("model", {}).get("num_classes", 6)
+        num_classes = CONFIG.get("model", {}).get("num_classes", 7)
     if in_channels is None:
         in_channels = CONFIG.get("model", {}).get("in_channels", 4)
 

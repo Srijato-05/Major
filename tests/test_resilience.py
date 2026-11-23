@@ -18,12 +18,12 @@ def test_missing_parameters_and_files_resilience():
     # Test loading with non-existent config files (must NOT crash, must return safe defaults)
     fallback_cfg = load_config(system_config_path="non_existent_sys.yaml", conveyor_config_path="non_existent_conv.yaml")
     assert fallback_cfg["conveyor"]["speed_mps"] == 2.5
-    assert fallback_cfg["model"]["num_classes"] == 6
+    assert fallback_cfg["model"]["num_classes"] == 7
     assert fallback_cfg["system"]["project_name"] == "adaptive-multimodal-ewaste-sorting"
 
 def test_pure_rgb_image_inference():
     # Model accepts 4 channels, but user might upload pure 3-channel RGB image
-    model = build_4channel_segmentation_model(num_classes=6, in_channels=4, pretrained=False)
+    model = build_4channel_segmentation_model(num_classes=7, in_channels=4, pretrained=False)
     engine = MultimodalInferenceEngine(model=model)
 
     pure_rgb = np.random.randint(0, 255, (256, 256, 3), dtype=np.uint8)
@@ -33,7 +33,7 @@ def test_pure_rgb_image_inference():
     assert res["mask"].shape == (256, 256)
 
 def test_video_frame_rendering_and_empty_frames():
-    model = build_4channel_segmentation_model(num_classes=6, in_channels=4, pretrained=False)
+    model = build_4channel_segmentation_model(num_classes=7, in_channels=4, pretrained=False)
     engine = MultimodalInferenceEngine(model=model)
 
     # Empty frame should return empty safe dict without error
@@ -45,7 +45,7 @@ def test_video_frame_rendering_and_empty_frames():
     frame = np.zeros((200, 200, 3), dtype=np.uint8)
     dummy_pred = {
         "instances": [{
-            "class_id": 0,
+            "class_id": 1,
             "class_name": "High-Grade PCB",
             "confidence": 0.88,
             "bbox": [20, 20, 50, 50],

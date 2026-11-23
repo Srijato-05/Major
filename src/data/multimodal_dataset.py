@@ -1,5 +1,7 @@
 import os
+import json
 import glob
+import random
 import cv2
 import numpy as np
 import torch
@@ -152,6 +154,8 @@ class BatteryPackDataset(Dataset):
         mask = cv2.imread(mask_path, cv2.IMREAD_UNCHANGED)
         if len(mask.shape) == 3:
             mask = mask[:, :, 0]
+        # Remap legacy Class 2 battery masks to Class 3 in the 7-class taxonomy
+        mask = np.where(mask == 2, 3, mask)
 
         if self.is_training and self.augmentation is not None:
             aug_res = self.augmentation(image_4ch, mask)
@@ -199,17 +203,103 @@ class CombinedEWasteDataset(Dataset):
             return self.battery_ds[idx - len(self.spectral_ds)]
 
 
+class ManifestMultimodalDataset(Dataset):
+    """
+    Manifest-driven 4-channel multimodal dataset reading frozen train/val/test JSON splits
+    from data/processed/{split}.json, with optional 4th-channel modality dropout during training.
+    """
+
+    def __init__(
+        self,
+        manifest_path: str = "data/processed/train.json",
+        img_size: Tuple[int, int] = (640, 640),
+        is_training: bool = True,
+        augmentation: Optional[IndustrialMultimodalAugmentation] = None,
+        class_mapping: Optional[Dict[int, int]] = None,
+        spectral_dropout_prob: float = 0.15
+    ):
+        self.manifest_path = manifest_path
+        self.img_size = img_size
+        self.is_training = is_training
+        self.augmentation = augmentation
+        self.spectral_dropout_prob = spectral_dropout_prob
+
+        if class_mapping is None:
+            from src.utils.config_loader import CONFIG
+            class_mapping = CONFIG.get("taxonomy", {}).get("dataset_mappings", {}).get("spectralwaste")
+        self.class_mapping = class_mapping
+
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            self.records: List[Dict[str, Any]] = json.load(f)
+
+    def __len__(self) -> int:
+        return len(self.records)
+
+    def __getitem__(self, idx: int) -> Dict[str, Any]:
+        rec = self.records[idx]
+        source = rec["source"]
+
+        rgb = cv2.imread(rec["rgb_path"], cv2.IMREAD_COLOR)
+        rgb = cv2.cvtColor(rgb, cv2.COLOR_BGR2RGB)
+
+        spec = cv2.imread(rec["spectral_path"], cv2.IMREAD_UNCHANGED)
+        if spec.ndim == 3:
+            spectral_band = spec[:, :, 0:1]
+        else:
+            spectral_band = spec[:, :, np.newaxis]
+
+        # 4th-channel modality dropout during training so model generalizes to RGB-only fallback
+        if self.is_training and self.spectral_dropout_prob > 0 and random.random() < self.spectral_dropout_prob:
+            spectral_band = rgb.mean(axis=2, keepdims=True).astype(np.uint8)
+
+        image_4ch = np.concatenate([rgb, spectral_band], axis=2)
+
+        mask = cv2.imread(rec["mask_path"], cv2.IMREAD_UNCHANGED)
+        if mask.ndim == 3:
+            mask = mask[:, :, 0]
+
+        if source == "spectralwaste" and self.class_mapping is not None:
+            remapped = np.zeros_like(mask)
+            for raw_id, target_id in self.class_mapping.items():
+                remapped[mask == int(raw_id)] = int(target_id)
+            mask = remapped
+        elif source == "battery_packs":
+            mask = np.where(mask == 2, 3, mask)
+
+        if self.is_training and self.augmentation is not None:
+            aug_res = self.augmentation(image_4ch, mask)
+            image_4ch = aug_res["image"]
+            mask = aug_res["mask"]
+
+        image_4ch = cv2.resize(image_4ch, self.img_size, interpolation=cv2.INTER_LINEAR)
+        mask = cv2.resize(mask, self.img_size, interpolation=cv2.INTER_NEAREST)
+
+        tensor_image = torch.from_numpy(image_4ch).permute(2, 0, 1).float() / 255.0
+        tensor_mask = torch.from_numpy(mask).long()
+
+        return {
+            "image": tensor_image,
+            "mask": tensor_mask,
+            "filename": rec["id"],
+            "source": source
+        }
+
+
 def build_multimodal_dataloader(
     root_dir: Optional[str] = None,
     batch_size: Optional[int] = None,
     img_size: Optional[Tuple[int, int]] = None,
     is_training: bool = True,
     num_workers: int = 0,
-    include_batteries: bool = False
+    include_batteries: bool = False,
+    split: Optional[str] = None,
+    spectral_dropout_prob: float = 0.15
 ) -> DataLoader:
     """
     Constructs an optimized DataLoader for 4-channel multimodal e-waste streams,
     pulling defaults dynamically from system_config.yaml.
+    When `split` ('train', 'val', 'test') is provided and `data/processed/{split}.json`
+    exists, loads from the frozen manifest split to prevent train/val/test leakage.
     """
     from src.utils.config_loader import CONFIG
 
@@ -225,8 +315,18 @@ def build_multimodal_dataloader(
     class_mapping = CONFIG.get("taxonomy", {}).get("dataset_mappings", {}).get("spectralwaste")
 
     aug = IndustrialMultimodalAugmentation(belt_speed_mps=conveyor_speed) if is_training else None
-    
-    if include_batteries and os.path.exists("data/raw/battery_packs/rgb"):
+
+    manifest_path = os.path.join("data", "processed", f"{split}.json") if split else None
+    if manifest_path and os.path.exists(manifest_path):
+        dataset = ManifestMultimodalDataset(
+            manifest_path=manifest_path,
+            img_size=img_size,
+            is_training=is_training,
+            augmentation=aug,
+            class_mapping=class_mapping,
+            spectral_dropout_prob=spectral_dropout_prob if is_training else 0.0
+        )
+    elif include_batteries and os.path.exists("data/raw/battery_packs/rgb"):
         dataset = CombinedEWasteDataset(
             spectral_dir=root_dir,
             battery_dir="data/raw/battery_packs",

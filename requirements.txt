@@ -23,6 +23,11 @@ fastapi>=0.110.0
 uvicorn>=0.28.0
 websockets>=12.0
 jinja2>=3.1.3
+python-multipart>=0.0.9
+
+# Dataset Ingestion & CLI Utilities
+huggingface_hub>=0.23.0
+tqdm>=4.66.0
 
 # Testing & Quality
 pytest>=8.0.0

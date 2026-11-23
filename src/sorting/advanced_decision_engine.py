@@ -54,12 +54,13 @@ class AdvancedSortingDecisionEngine:
 
         # Critical elements per category (from doc-1 and doc-2)
         critical_elements_map = {
-            0: ["Au (Gold)", "Ag (Silver)", "Cu (Copper)", "Pd (Palladium)"],
-            1: ["Ta (Tantalum)", "Rare Earth Elements (Nd/Dy)", "Au"],
-            2: ["Co (Cobalt)", "Li (Lithium)", "Ni (Nickel)"],
-            3: ["Br (Bromine Hazard)"],
-            4: ["Al (Aluminum)", "Cu (Copper)"],
-            5: ["Cu (Pure Copper)"]
+            0: [],
+            1: ["Au (Gold)", "Ag (Silver)", "Cu (Copper)", "Pd (Palladium)"],
+            2: ["Ta (Tantalum)", "Rare Earth Elements (Nd/Dy)", "Au"],
+            3: ["Co (Cobalt)", "Li (Lithium)", "Ni (Nickel)"],
+            4: ["Br (Bromine Hazard)"],
+            5: ["Al (Aluminum)", "Cu (Copper)"],
+            6: ["Cu (Pure Copper)"]
         }
 
         for cid_str, info in cfg.get("classes", {}).items():
@@ -107,20 +108,22 @@ class AdvancedSortingDecisionEngine:
         status = "COMPLIANT"
 
         # Check Annex VII mandatory thresholds
-        if class_id == 0:  # High-Grade PCB
+        if class_id == 0:  # Conveyor Background
+            action = "IGNORE_BACKGROUND"
+        elif class_id == 1:  # High-Grade PCB
             if area_cm2 >= 10.0:
                 is_annex_vii = True
                 action = "MANDATORY_ANNEX_VII_EXTRACTION"
             else:
                 action = "HIGH_VALUE_RECOVERY"
-        elif class_id == 2:  # Battery Unit
+        elif class_id == 3:  # Battery Unit
             is_annex_vii = True
             action = "CRITICAL_EXPLOSIVE_ISOLATION"
             if confidence < 0.60:
                 # Uncertain battery ejection triggers safety penalty under Regime 2
                 penalty = 165.0  # Approx €165 / ₹15,000 equivalent
                 status = "PENALTY_REGIME_2_HAZARD"
-        elif class_id == 3:  # BFR Polymer
+        elif class_id == 4:  # BFR Polymer
             is_annex_vii = True
             action = "ROHS_DECONTAMINATION_ROUTE"
         else:

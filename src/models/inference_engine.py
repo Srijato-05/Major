@@ -26,15 +26,24 @@ class MultimodalInferenceEngine:
     ):
         self.device = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
         cfg_model = CONFIG.get("model", {})
+        self.img_size = int(cfg_model.get("img_size", 640))
         self.conf_threshold = conf_threshold if conf_threshold is not None else cfg_model.get("conf_threshold", 0.35)
+        raw_thresh = cfg_model.get("class_thresholds", {})
+        self.class_thresholds = {int(k): float(v) for k, v in raw_thresh.items()} if raw_thresh else {}
         self.model = model or build_4channel_segmentation_model(pretrained=True)
 
         if weights_path and os.path.exists(weights_path):
-            checkpoint = torch.load(weights_path, map_location=self.device)
-            if "model_state_dict" in checkpoint:
-                self.model.load_state_dict(checkpoint["model_state_dict"])
-            else:
-                self.model.load_state_dict(checkpoint)
+            checkpoint = torch.load(weights_path, map_location=self.device, weights_only=False)
+            state_dict = checkpoint["model_state_dict"] if "model_state_dict" in checkpoint else checkpoint
+            model_state = self.model.state_dict()
+            filtered_state = {
+                k: v for k, v in state_dict.items()
+                if k in model_state and model_state[k].shape == v.shape
+            }
+            if len(filtered_state) < len(state_dict):
+                skipped = sorted(set(state_dict.keys()) - set(filtered_state.keys()))
+                print(f"Warning: Skipping {len(skipped)} shape-mismatched checkpoint tensors during migration: {skipped}")
+            self.model.load_state_dict(filtered_state, strict=False)
 
         self.model.to(self.device)
         self.model.eval()
@@ -47,12 +56,14 @@ class MultimodalInferenceEngine:
         self,
         rgb_image: np.ndarray,
         spectral_band: Optional[np.ndarray] = None,
-        target_size: Tuple[int, int] = (640, 640)
+        target_size: Optional[Tuple[int, int]] = None
     ) -> Tuple[torch.Tensor, Tuple[int, int]]:
         """
         Prepares 4-channel input tensor. If spectral_band is omitted,
         generates synthetic infrared fallback using channel mean.
         """
+        if target_size is None:
+            target_size = (self.img_size, self.img_size)
         orig_h, orig_w = rgb_image.shape[:2]
 
         if spectral_band is None:
@@ -104,21 +115,19 @@ class MultimodalInferenceEngine:
             ch_smooth = cv2.medianBlur(ch, 5)
             smoothed_probs[c_idx] = ch_smooth.astype(np.float32) / 255.0
 
-        # Class predictions with calibrated thresholding
-        # Default background unless foreground class exceeds calibrated threshold (0.60 for polymers, 0.45 for others)
-        class_map_np = np.zeros((probs_np.shape[1], probs_np.shape[2]), dtype=np.uint8)
-        conf_map_np = smoothed_probs[0].copy()
+        # Class predictions with calibrated per-class thresholds + UI confidence slider
+        fg_probs = smoothed_probs[1:]
+        fg_best_cls = (1 + np.argmax(fg_probs, axis=0)).astype(np.uint8)
+        fg_max_prob = np.max(fg_probs, axis=0)
 
-        # Check foreground classes
-        for c_idx in [3, 1, 2, 4, 5]:
-            thresh = 0.58 if c_idx == 3 else 0.45
-            fg_mask = (smoothed_probs[c_idx] >= thresh) & (smoothed_probs[c_idx] > conf_map_np)
-            class_map_np[fg_mask] = c_idx
-            conf_map_np[fg_mask] = smoothed_probs[c_idx][fg_mask]
+        thresh_grid = np.full_like(fg_max_prob, max(0.45, float(self.conf_threshold)))
+        for c_idx in range(1, probs_np.shape[0]):
+            t_val = max(self.class_thresholds.get(c_idx, 0.45), float(self.conf_threshold))
+            thresh_grid[fg_best_cls == c_idx] = t_val
 
-        # Where no foreground exceeded calibrated threshold, assign background
-        bg_mask = (class_map_np == 0)
-        conf_map_np[bg_mask] = smoothed_probs[0][bg_mask]
+        fg_accept = fg_max_prob >= thresh_grid
+        class_map_np = np.where(fg_accept, fg_best_cls, 0).astype(np.uint8)
+        conf_map_np = np.where(fg_accept, fg_max_prob, smoothed_probs[0])
 
         # Resize back to original dimensions
         class_map_orig = cv2.resize(class_map_np, (orig_w, orig_h), interpolation=cv2.INTER_NEAREST)
@@ -219,12 +228,13 @@ class MultimodalInferenceEngine:
 
         # Predefined distinct vibrant BGR colors for each WEEE class
         class_colors = {
-            0: (0, 255, 0),    # High-Grade PCB (Green)
-            1: (255, 0, 255),  # IC Molds & Chips (Magenta)
-            2: (0, 0, 255),    # Battery Pack (Red alert)
-            3: (0, 165, 255),  # BFR Polymers (Orange)
-            4: (255, 255, 0),  # Metallic Heat Sinks (Cyan)
-            5: (255, 128, 0),  # Copper Wire Harnesses (Blue)
+            0: (128, 128, 128), # Conveyor Background (Gray)
+            1: (0, 255, 0),     # High-Grade PCB (Green)
+            2: (255, 0, 255),   # IC Molds & Chips (Magenta)
+            3: (0, 0, 255),     # Battery Pack (Red alert)
+            4: (0, 165, 255),   # BFR Polymers (Orange)
+            5: (255, 255, 0),   # Metallic Heat Sinks (Cyan)
+            6: (255, 128, 0),   # Copper Wire Harnesses (Blue)
         }
 
         for inst in predictions.get("instances", []):

@@ -13,7 +13,7 @@ def test_config_loader():
     assert "conveyor" in config
     assert "taxonomy" in config
     assert config["conveyor"]["default_speed_mps"] == 2.5
-    assert len(config["taxonomy"]["classes"]) == 6
+    assert len(config["taxonomy"]["classes"]) == 7
 
 def test_weight_inflation():
     conv3 = nn.Conv2d(in_channels=3, out_channels=32, kernel_size=3, padding=1)
@@ -47,7 +47,7 @@ def test_planar_homography():
 
 def test_sorting_decision_engine():
     engine = SortingDecisionEngine(CONFIG["taxonomy"])
-    item = engine.evaluate_item(track_id=1, class_id=0, confidence=0.95, area_mm2=1000.0)
+    item = engine.evaluate_item(track_id=1, class_id=1, confidence=0.95, area_mm2=1000.0)
     assert item.class_name == "High-Grade PCB"
     assert item.target_bin == "BIN_PCB_RECOVERY"
     assert item.commodity_value_eur > 0
@@ -56,7 +56,7 @@ def test_sorting_decision_engine():
 def test_telemetry_engine():
     telem = IndustrialTelemetryEngine(window_seconds=5.0)
     engine = SortingDecisionEngine(CONFIG["taxonomy"])
-    item = engine.evaluate_item(track_id=1, class_id=1, confidence=0.9, area_mm2=500.0)
+    item = engine.evaluate_item(track_id=1, class_id=2, confidence=0.9, area_mm2=500.0)
     
     telem.record_item(item)
     telem.record_latency(12.0)

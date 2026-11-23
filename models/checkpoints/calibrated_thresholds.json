@@ -1,0 +1,274 @@
+{
+  "weights_path": "models/checkpoints/multimodal_4ch_best.pth",
+  "img_size": 384,
+  "class_thresholds": {
+    "1": 0.36,
+    "2": 0.76,
+    "3": 0.38,
+    "4": 0.58,
+    "5": 0.59,
+    "6": 0.88
+  },
+  "val_raw": {
+    "overall_pixel_accuracy": 0.9062,
+    "mean_iou": 0.6871,
+    "mean_precision": 0.7592,
+    "mean_recall": 0.8698,
+    "mean_f1_score": 0.7957,
+    "total_pixels_evaluated": 86704128,
+    "per_class_metrics": {
+      "Conveyor Background": {
+        "class_id": 0,
+        "iou": 0.8734,
+        "precision": 0.9491,
+        "recall": 0.9164,
+        "f1_dice": 0.9324,
+        "total_ground_truth_pixels": 53489389
+      },
+      "High-Grade PCB": {
+        "class_id": 1,
+        "iou": 0.8368,
+        "precision": 0.9107,
+        "recall": 0.9116,
+        "f1_dice": 0.9111,
+        "total_ground_truth_pixels": 9934916
+      },
+      "IC Molds & Chips": {
+        "class_id": 2,
+        "iou": 0.6779,
+        "precision": 0.771,
+        "recall": 0.8487,
+        "f1_dice": 0.808,
+        "total_ground_truth_pixels": 1146864
+      },
+      "Battery Pack Units": {
+        "class_id": 3,
+        "iou": 0.7867,
+        "precision": 0.872,
+        "recall": 0.8894,
+        "f1_dice": 0.8806,
+        "total_ground_truth_pixels": 14707833
+      },
+      "BFR Polymers": {
+        "class_id": 4,
+        "iou": 0.611,
+        "precision": 0.6744,
+        "recall": 0.8667,
+        "f1_dice": 0.7586,
+        "total_ground_truth_pixels": 2587864
+      },
+      "Metallic Heat Sinks": {
+        "class_id": 5,
+        "iou": 0.7633,
+        "precision": 0.856,
+        "recall": 0.8757,
+        "f1_dice": 0.8657,
+        "total_ground_truth_pixels": 4508838
+      },
+      "Copper Wire Harnesses": {
+        "class_id": 6,
+        "iou": 0.2605,
+        "precision": 0.2811,
+        "recall": 0.7802,
+        "f1_dice": 0.4133,
+        "total_ground_truth_pixels": 328424
+      }
+    },
+    "confusion_matrix": [
+      [
+        49015478,
+        728142,
+        99579,
+        1516298,
+        1071819,
+        421383,
+        636690
+      ],
+      [
+        688709,
+        9056356,
+        189226,
+        605,
+        0,
+        0,
+        20
+      ],
+      [
+        46606,
+        126887,
+        973371,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        1347790,
+        33266,
+        284,
+        13081877,
+        0,
+        242975,
+        1641
+      ],
+      [
+        328204,
+        0,
+        0,
+        0,
+        2242871,
+        0,
+        16789
+      ],
+      [
+        157129,
+        0,
+        0,
+        403073,
+        0,
+        3948583,
+        53
+      ],
+      [
+        61281,
+        0,
+        0,
+        0,
+        10898,
+        0,
+        256245
+      ]
+    ]
+  },
+  "val_calibrated": {
+    "overall_pixel_accuracy": 0.9099,
+    "mean_iou": 0.699,
+    "mean_precision": 0.7889,
+    "mean_recall": 0.8337,
+    "mean_f1_score": 0.808,
+    "total_pixels_evaluated": 86704128,
+    "per_class_metrics": {
+      "Conveyor Background": {
+        "class_id": 0,
+        "iou": 0.877,
+        "precision": 0.9479,
+        "recall": 0.9214,
+        "f1_dice": 0.9344,
+        "total_ground_truth_pixels": 53489389
+      },
+      "High-Grade PCB": {
+        "class_id": 1,
+        "iou": 0.8402,
+        "precision": 0.9001,
+        "recall": 0.9267,
+        "f1_dice": 0.9132,
+        "total_ground_truth_pixels": 9934916
+      },
+      "IC Molds & Chips": {
+        "class_id": 2,
+        "iou": 0.6877,
+        "precision": 0.822,
+        "recall": 0.8081,
+        "f1_dice": 0.815,
+        "total_ground_truth_pixels": 1146864
+      },
+      "Battery Pack Units": {
+        "class_id": 3,
+        "iou": 0.7867,
+        "precision": 0.8618,
+        "recall": 0.9003,
+        "f1_dice": 0.8806,
+        "total_ground_truth_pixels": 14707833
+      },
+      "BFR Polymers": {
+        "class_id": 4,
+        "iou": 0.613,
+        "precision": 0.6877,
+        "recall": 0.8495,
+        "f1_dice": 0.7601,
+        "total_ground_truth_pixels": 2587864
+      },
+      "Metallic Heat Sinks": {
+        "class_id": 5,
+        "iou": 0.7696,
+        "precision": 0.8869,
+        "recall": 0.8533,
+        "f1_dice": 0.8698,
+        "total_ground_truth_pixels": 4508838
+      },
+      "Copper Wire Harnesses": {
+        "class_id": 6,
+        "iou": 0.3185,
+        "precision": 0.4157,
+        "recall": 0.5766,
+        "f1_dice": 0.4831,
+        "total_ground_truth_pixels": 328424
+      }
+    },
+    "confusion_matrix": [
+      [
+        49284599,
+        856792,
+        66027,
+        1718230,
+        987976,
+        317277,
+        258488
+      ],
+      [
+        593619,
+        9206238,
+        134480,
+        579,
+        0,
+        0,
+        0
+      ],
+      [
+        91447,
+        128675,
+        926742,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        1256727,
+        36353,
+        149,
+        13241141,
+        0,
+        173463,
+        0
+      ],
+      [
+        381916,
+        0,
+        0,
+        0,
+        2198269,
+        0,
+        7679
+      ],
+      [
+        257092,
+        0,
+        0,
+        404264,
+        0,
+        3847482,
+        0
+      ],
+      [
+        128888,
+        0,
+        0,
+        0,
+        10171,
+        0,
+        189365
+      ]
+    ]
+  }
+}
