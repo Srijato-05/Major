@@ -21,11 +21,99 @@ def parse_class_map(spec: Optional[str]) -> Optional[Dict[int, int]]:
     return mapping
 
 
+def _refine_bbox_grabcut(img: np.ndarray, x1: int, y1: int, x2: int, y2: int) -> Optional[np.ndarray]:
+    """
+    Runs GrabCut (2 iters) on a bounding box region to tighten rectangular labels onto the object.
+    Returns a boolean mask of shape (y2 - y1, x2 - x1) if foreground area is 20%-95% of the box;
+    otherwise returns None so caller falls back to the full rectangle.
+    """
+    h, w = img.shape[:2]
+    x1 = max(0, min(w - 1, int(x1)))
+    y1 = max(0, min(h - 1, int(y1)))
+    x2 = max(x1, min(w, int(x2)))
+    y2 = max(y1, min(h, int(y2)))
+
+    bw = x2 - x1
+    bh = y2 - y1
+    box_area = bw * bh
+    if bw < 16 or bh < 16 or box_area < 256:
+        return None
+
+    try:
+        pad = max(8, int(0.15 * max(bw, bh)))
+        ox1 = max(0, x1 - pad)
+        oy1 = max(0, y1 - pad)
+        ox2 = min(w, x2 + pad)
+        oy2 = min(h, y2 + pad)
+        roi = img[oy1:oy2, ox1:ox2]
+        roi_h, roi_w = roi.shape[:2]
+
+        rx1 = max(1, x1 - ox1)
+        ry1 = max(1, y1 - oy1)
+        rx2 = min(roi_w - 1, x2 - ox1)
+        ry2 = min(roi_h - 1, y2 - oy1)
+        if rx2 - rx1 < 8 or ry2 - ry1 < 8:
+            return None
+
+        gc_mask = np.zeros((roi_h, roi_w), dtype=np.uint8)
+        bgd_model = np.zeros((1, 65), dtype=np.float64)
+        fgd_model = np.zeros((1, 65), dtype=np.float64)
+        rect = (rx1, ry1, rx2 - rx1, ry2 - ry1)
+
+        max_side = max(roi_h, roi_w)
+        if max_side > 160:
+            scale = 160.0 / float(max_side)
+            sw = max(16, int(round(roi_w * scale)))
+            sh = max(16, int(round(roi_h * scale)))
+            s_roi = cv2.resize(roi, (sw, sh), interpolation=cv2.INTER_AREA)
+            srx1 = max(1, int(round(rx1 * scale)))
+            sry1 = max(1, int(round(ry1 * scale)))
+            srx2 = min(sw - 1, max(srx1 + 4, int(round(rx2 * scale))))
+            sry2 = min(sh - 1, max(sry1 + 4, int(round(ry2 * scale))))
+            s_mask = np.zeros((sh, sw), dtype=np.uint8)
+            cv2.grabCut(s_roi, s_mask, (srx1, sry1, srx2 - srx1, sry2 - sry1), bgd_model, fgd_model, 2, cv2.GC_INIT_WITH_RECT)
+            s_fg = ((s_mask == cv2.GC_FGD) | (s_mask == cv2.GC_PR_FGD)).astype(np.uint8)
+            fg_roi = cv2.resize(s_fg, (roi_w, roi_h), interpolation=cv2.INTER_NEAREST).astype(bool)
+        else:
+            cv2.grabCut(roi, gc_mask, rect, bgd_model, fgd_model, 2, cv2.GC_INIT_WITH_RECT)
+            fg_roi = (gc_mask == cv2.GC_FGD) | (gc_mask == cv2.GC_PR_FGD)
+
+        fg_box = fg_roi[(y1 - oy1):(y2 - oy1), (x1 - ox1):(x2 - ox1)]
+        if fg_box.shape != (bh, bw):
+            return None
+
+        ratio = float(fg_box.sum()) / float(box_area)
+        if 0.20 <= ratio <= 0.95:
+            return fg_box
+    except Exception:
+        return None
+    return None
+
+
+def _draw_bbox_or_grabcut(img: np.ndarray, mask: np.ndarray, x1: int, y1: int, x2: int, y2: int, target_cid: int, refine_bbox: bool):
+    """Fills a bounding box into `mask`, optionally refined with GrabCut foreground estimation."""
+    h, w = img.shape[:2]
+    x1 = max(0, min(w - 1, int(x1)))
+    y1 = max(0, min(h - 1, int(y1)))
+    x2 = max(x1, min(w, int(x2)))
+    y2 = max(y1, min(h, int(y2)))
+    if x2 <= x1 or y2 <= y1:
+        return
+    if refine_bbox:
+        refined = _refine_bbox_grabcut(img, x1, y1, x2, y2)
+        if refined is not None:
+            patch = mask[y1:y2, x1:x2]
+            patch[refined] = target_cid
+            return
+    cv2.rectangle(mask, (x1, y1), (x2, y2), target_cid, -1)
+
+
 def ingest_coco_dir(
     input_dir: str,
     out_dir: str,
     class_id: Optional[int] = None,
     class_map: Optional[Dict[int, int]] = None,
+    refine_bbox: bool = False,
 ) -> int:
     """
     Converts COCO JSON polygon/bbox annotations into (rgb, nir, mask) triplets.
@@ -95,7 +183,7 @@ def ingest_coco_dir(
                             drew = True
                 elif "bbox" in ann:
                     bx, by, bw, bh = [int(round(v)) for v in ann["bbox"]]
-                    cv2.rectangle(mask, (bx, by), (bx + bw, by + bh), target_cid, -1)
+                    _draw_bbox_or_grabcut(img, mask, bx, by, bx + bw, by + bh, target_cid, refine_bbox=refine_bbox)
                     drew = True
                 if drew:
                     mapped_hits += 1
@@ -117,6 +205,7 @@ def ingest_yolo_dir(
     out_dir: str,
     class_id: Optional[int] = None,
     class_map: Optional[Dict[int, int]] = None,
+    refine_bbox: bool = False,
 ) -> int:
     """
     Converts YOLO polygon/bbox .txt annotations into (rgb, nir, mask) triplets.
@@ -174,7 +263,7 @@ def ingest_yolo_dir(
                     y1 = max(0, int((cy - bh / 2.0) * h))
                     x2 = min(w, int((cx + bw / 2.0) * w))
                     y2 = min(h, int((cy + bh / 2.0) * h))
-                    cv2.rectangle(mask, (x1, y1), (x2, y2), target_cid, -1)
+                    _draw_bbox_or_grabcut(img, mask, x1, y1, x2, y2, target_cid, refine_bbox=refine_bbox)
                     mapped_hits += 1
                 elif len(parts) >= 7:
                     coords = np.array(parts[1:], dtype=np.float32).reshape(-1, 2)
@@ -201,6 +290,7 @@ def ingest_external_weee(
     class_id: Optional[int] = None,
     class_map: Optional[Dict[int, int]] = None,
     fmt: str = "auto",
+    refine_bbox: bool = False,
 ) -> int:
     if class_id is None and class_map is None:
         raise ValueError("Provide either --class-id or --class-map.")
@@ -211,13 +301,13 @@ def ingest_external_weee(
         fmt = "coco" if has_json else "yolo"
 
     if fmt == "coco":
-        count = ingest_coco_dir(input_dir, out_dir, class_id=class_id, class_map=class_map)
+        count = ingest_coco_dir(input_dir, out_dir, class_id=class_id, class_map=class_map, refine_bbox=refine_bbox)
     elif fmt == "yolo":
-        count = ingest_yolo_dir(input_dir, out_dir, class_id=class_id, class_map=class_map)
+        count = ingest_yolo_dir(input_dir, out_dir, class_id=class_id, class_map=class_map, refine_bbox=refine_bbox)
     else:
         raise ValueError(f"Unsupported format: {fmt}")
 
-    print(f"[WEEE-IMPORT:{name}] Converted {count} samples (class_id={class_id}, class_map={class_map}, fmt={fmt}) -> {out_dir}")
+    print(f"[WEEE-IMPORT:{name}] Converted {count} samples (class_id={class_id}, class_map={class_map}, fmt={fmt}, refine_bbox={refine_bbox}) -> {out_dir}")
     return count
 
 
@@ -228,10 +318,11 @@ def main():
     parser.add_argument("--class-map", type=str, default=None, help="Selective mapping e.g. '0:3,1:5' (skips unmapped classes & empty images)")
     parser.add_argument("--name", required=True, help="Output folder name under data/raw/weee_extra/")
     parser.add_argument("--format", choices=["auto", "coco", "yolo"], default="auto")
+    parser.add_argument("--refine-bbox", action="store_true", help="Tighten rectangular bounding-box masks with GrabCut foreground estimation")
     args = parser.parse_args()
 
     cmap = parse_class_map(args.class_map)
-    ingest_external_weee(args.input_dir, args.name, class_id=args.class_id, class_map=cmap, fmt=args.format)
+    ingest_external_weee(args.input_dir, args.name, class_id=args.class_id, class_map=cmap, fmt=args.format, refine_bbox=args.refine_bbox)
 
 
 if __name__ == "__main__":

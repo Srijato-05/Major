@@ -8,6 +8,7 @@ pydantic>=2.5.0
 
 # Computer Vision & Multi-Modal Processing
 ultralytics>=8.1.0
+segmentation-models-pytorch>=0.3.3
 albumentations>=1.4.0
 scipy>=1.11.0
 

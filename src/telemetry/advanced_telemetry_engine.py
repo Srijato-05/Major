@@ -34,12 +34,36 @@ class AdvancedTelemetryEngine:
         self.total_gross_revenue_eur = 0.0
         self.total_penalties_eur = 0.0
 
-        # Bin accounting
+        # Bin accounting & true purity / recovery tracking
         self.bin_mass_kg: Dict[str, float] = {}
         self.bin_item_counts: Dict[str, int] = {}
+        self.bin_correct_counts: Dict[str, int] = {}
+        self.bin_total_counts: Dict[str, int] = {}
+        self.class_gt_counts: Dict[int, int] = {}
+        self.class_recovered_counts: Dict[int, int] = {}
         self.bin_purity_scores: Dict[str, float] = {}
+        self.class_recovery_rates: Dict[int, float] = {}
         self.critical_materials_counter: Dict[str, int] = {}
         self.annex_vii_extractions = 0
+
+    def record_sorting_accuracy(self, predicted_bin: str, predicted_class_id: int, gt_class_id: int):
+        """Updates true per-bin purity (%) and per-class recovery rate (%) against ground truth."""
+        self.bin_total_counts[predicted_bin] = self.bin_total_counts.get(predicted_bin, 0) + 1
+        if predicted_class_id == gt_class_id:
+            self.bin_correct_counts[predicted_bin] = self.bin_correct_counts.get(predicted_bin, 0) + 1
+
+        if gt_class_id > 0:
+            self.class_gt_counts[gt_class_id] = self.class_gt_counts.get(gt_class_id, 0) + 1
+            if predicted_class_id == gt_class_id:
+                self.class_recovered_counts[gt_class_id] = self.class_recovered_counts.get(gt_class_id, 0) + 1
+
+        for b_name, total in self.bin_total_counts.items():
+            correct = self.bin_correct_counts.get(b_name, 0)
+            self.bin_purity_scores[b_name] = round(100.0 * correct / max(total, 1), 2)
+
+        for cid, gt_tot in self.class_gt_counts.items():
+            rec = self.class_recovered_counts.get(cid, 0)
+            self.class_recovery_rates[cid] = round(100.0 * rec / max(gt_tot, 1), 2)
 
     def record_item(self, item: AdvancedSortedItemResult):
         now = time.time()
@@ -97,6 +121,10 @@ class AdvancedTelemetryEngine:
         avg_latency_ms = sum(lat for _, lat in self.latency_history) / max(len(self.latency_history), 1)
         fps = 1000.0 / avg_latency_ms if avg_latency_ms > 0 else 0.0
 
+        total_eval = sum(self.bin_total_counts.values())
+        total_correct = sum(self.bin_correct_counts.values())
+        overall_purity = round(100.0 * total_correct / max(total_eval, 1), 2) if total_eval > 0 else 100.0
+
         return {
             "uptime_seconds": round(elapsed_sec, 1),
             "total_items_processed": self.total_items_processed,
@@ -114,5 +142,8 @@ class AdvancedTelemetryEngine:
             "fps": round(fps, 1),
             "bin_item_counts": dict(self.bin_item_counts),
             "bin_mass_kg": {k: round(v, 3) for k, v in self.bin_mass_kg.items()},
+            "bin_purity_scores": dict(self.bin_purity_scores),
+            "class_recovery_rates": dict(self.class_recovery_rates),
+            "overall_purity_pct": overall_purity,
             "critical_materials_recovered": dict(self.critical_materials_counter)
         }

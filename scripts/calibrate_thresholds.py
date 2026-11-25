@@ -33,7 +33,23 @@ def apply_class_thresholds(probs: torch.Tensor, thresholds: dict) -> torch.Tenso
     return torch.where(fg_max >= thresh_map, fg_cls, torch.zeros_like(fg_cls))
 
 
-def calibrate_on_validation(weights_path: str, img_size: int = 384, batch_size: int = 4):
+def predict_probs_tta(model, images: torch.Tensor, use_tta: bool = True) -> torch.Tensor:
+    """
+    Runs model forward pass and returns softmax probabilities [B, C, H, W].
+    When `use_tta=True`, averages predictions across original, horizontal-flip, and vertical-flip views.
+    """
+    probs = F.softmax(model(images)["out"], dim=1)
+    if not use_tta:
+        return probs
+
+    probs_hf = F.softmax(model(torch.flip(images, dims=[3]))["out"], dim=1)
+    probs_hf = torch.flip(probs_hf, dims=[3])
+    probs_vf = F.softmax(model(torch.flip(images, dims=[2]))["out"], dim=1)
+    probs_vf = torch.flip(probs_vf, dims=[2])
+    return (probs + probs_hf + probs_vf) / 3.0
+
+
+def calibrate_on_validation(weights_path: str, img_size: int = 384, batch_size: int = 4, use_tta: bool = True):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = build_4channel_segmentation_model(num_classes=7, in_channels=4, pretrained=False)
     chk = torch.load(weights_path, map_location=device, weights_only=False)
@@ -59,13 +75,12 @@ def calibrate_on_validation(weights_path: str, img_size: int = 384, batch_size: 
     gt_totals = np.zeros(num_classes, dtype=np.int64)
     raw_suite = ModelEvaluationSuite(num_classes=num_classes)
 
-    print(f"Pass 1/2: Sweeping probability histograms across {len(val_loader.dataset)} validation samples...")
+    print(f"Pass 1/2 (TTA={use_tta}): Sweeping probability histograms across {len(val_loader.dataset)} validation samples...")
     with torch.no_grad():
         for batch in tqdm(val_loader, desc="Calibrate Hist"):
             images = batch["image"].to(device)
             targets = batch["mask"].numpy()
-            logits = model(images)["out"]
-            probs = F.softmax(logits, dim=1)
+            probs = predict_probs_tta(model, images, use_tta=use_tta)
 
             raw_preds = torch.argmax(probs, dim=1).cpu().numpy()
             raw_suite.update(raw_preds, targets)
@@ -116,12 +131,12 @@ def calibrate_on_validation(weights_path: str, img_size: int = 384, batch_size: 
 
     # Pass 2: Verify exact calibrated validation metrics
     cal_suite = ModelEvaluationSuite(num_classes=num_classes)
-    print(f"Pass 2/2: Verifying calibrated thresholds {calibrated} on validation set...")
+    print(f"Pass 2/2 (TTA={use_tta}): Verifying calibrated thresholds {calibrated} on validation set...")
     with torch.no_grad():
         for batch in tqdm(val_loader, desc="Verify Val"):
             images = batch["image"].to(device)
             targets = batch["mask"].numpy()
-            probs = F.softmax(model(images)["out"], dim=1)
+            probs = predict_probs_tta(model, images, use_tta=use_tta)
             preds = apply_class_thresholds(probs, calibrated).cpu().numpy()
             cal_suite.update(preds, targets)
 
@@ -138,6 +153,7 @@ def calibrate_on_validation(weights_path: str, img_size: int = 384, batch_size: 
         json.dump({
             "weights_path": weights_path,
             "img_size": img_size,
+            "use_tta": use_tta,
             "class_thresholds": {str(k): v for k, v in calibrated.items()},
             "val_raw": raw_metrics,
             "val_calibrated": cal_metrics,
@@ -160,6 +176,7 @@ if __name__ == "__main__":
     parser.add_argument("--weights", default="models/checkpoints/multimodal_4ch_best.pth")
     parser.add_argument("--img-size", type=int, default=default_img_size)
     parser.add_argument("--batch-size", type=int, default=4)
+    parser.add_argument("--no-tta", action="store_true", help="Disable 3-view flip TTA during calibration")
     args = parser.parse_args()
-    calibrate_on_validation(args.weights, args.img_size, args.batch_size)
+    calibrate_on_validation(args.weights, args.img_size, args.batch_size, use_tta=not args.no_tta)
 

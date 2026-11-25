@@ -22,15 +22,20 @@ class MultimodalInferenceEngine:
         model: Optional[Multimodal4ChSegmentationModel] = None,
         weights_path: Optional[str] = None,
         device: Optional[str] = None,
-        conf_threshold: Optional[float] = None
+        conf_threshold: Optional[float] = None,
+        use_fp16: bool = False
     ):
         self.device = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
+        if self.device.type == "cuda":
+            torch.backends.cudnn.benchmark = True
+        self.use_fp16 = bool(use_fp16 and self.device.type == "cuda")
         cfg_model = CONFIG.get("model", {})
         self.img_size = int(cfg_model.get("img_size", 640))
         self.conf_threshold = conf_threshold if conf_threshold is not None else cfg_model.get("conf_threshold", 0.35)
         raw_thresh = cfg_model.get("class_thresholds", {})
         self.class_thresholds = {int(k): float(v) for k, v in raw_thresh.items()} if raw_thresh else {}
-        self.model = model or build_4channel_segmentation_model(pretrained=True)
+        has_weights = bool(weights_path and os.path.exists(weights_path))
+        self.model = model or build_4channel_segmentation_model(pretrained=not has_weights)
 
         if weights_path and os.path.exists(weights_path):
             checkpoint = torch.load(weights_path, map_location=self.device, weights_only=False)
@@ -101,8 +106,9 @@ class MultimodalInferenceEngine:
         Executes segmentation inference and returns detected instances.
         """
         tensor, (orig_h, orig_w) = self.preprocess_image(rgb_image, spectral_band)
-        outputs = self.model(tensor)
-        logits = outputs["out"]  # [1, num_classes, H, W]
+        with torch.amp.autocast("cuda", enabled=self.use_fp16):
+            outputs = self.model(tensor)
+        logits = outputs["out"].float()  # [1, num_classes, H, W]
         probs = F.softmax(logits, dim=1).squeeze(0)  # [num_classes, H, W]
 
         # Extract per-class probability maps with spatial bilateral / median filtering

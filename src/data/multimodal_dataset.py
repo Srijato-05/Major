@@ -5,7 +5,7 @@ import random
 import cv2
 import numpy as np
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
 from typing import Dict, Any, Tuple, Optional, List
 from src.data.augmentations import IndustrialMultimodalAugmentation
 
@@ -293,7 +293,8 @@ def build_multimodal_dataloader(
     num_workers: int = 0,
     include_batteries: bool = False,
     split: Optional[str] = None,
-    spectral_dropout_prob: float = 0.15
+    spectral_dropout_prob: float = 0.15,
+    oversample_rare: bool = False
 ) -> DataLoader:
     """
     Constructs an optimized DataLoader for 4-channel multimodal e-waste streams,
@@ -343,10 +344,21 @@ def build_multimodal_dataloader(
             class_mapping=class_mapping
         )
 
+    sampler = None
+    if is_training and oversample_rare and isinstance(dataset, ManifestMultimodalDataset):
+        source_boost = {
+            "weee_extra_copper_wires": 5.0,
+            "pcb_vision": 2.0,
+            "pcb_dslr": 2.0,
+        }
+        sample_weights = [source_boost.get(rec["source"], 1.0) for rec in dataset.records]
+        sampler = WeightedRandomSampler(sample_weights, num_samples=len(sample_weights), replacement=True)
+
     return DataLoader(
         dataset,
         batch_size=batch_size,
-        shuffle=is_training,
+        shuffle=(is_training and sampler is None),
+        sampler=sampler,
         num_workers=num_workers,
         drop_last=is_training,
         pin_memory=True if torch.cuda.is_available() else False

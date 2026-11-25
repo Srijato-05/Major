@@ -10,10 +10,18 @@ from src.utils.config_loader import CONFIG
 from src.data.multimodal_dataset import build_multimodal_dataloader
 from src.models.multimodal_segmenter import build_4channel_segmentation_model
 from src.models.evaluation_suite import ModelEvaluationSuite
-from scripts.calibrate_thresholds import apply_class_thresholds
+from scripts.calibrate_thresholds import apply_class_thresholds, predict_probs_tta
 
 
-def evaluate_split(model, loader, device, use_rgb_ablation: bool = False, class_thresholds=None, max_batches: int = None):
+def evaluate_split(
+    model,
+    loader,
+    device,
+    use_rgb_ablation: bool = False,
+    class_thresholds=None,
+    max_batches: int = None,
+    use_tta: bool = True,
+):
     suite = ModelEvaluationSuite(num_classes=7)
     model.eval()
     with torch.no_grad():
@@ -25,12 +33,11 @@ def evaluate_split(model, loader, device, use_rgb_ablation: bool = False, class_
                 images = images.clone()
                 images[:, 3:4, :, :] = images[:, :3, :, :].mean(dim=1, keepdim=True)
             targets = batch["mask"].cpu().numpy()
-            logits = model(images)["out"]
+            probs = predict_probs_tta(model, images, use_tta=use_tta)
             if class_thresholds:
-                probs = F.softmax(logits, dim=1)
                 preds = apply_class_thresholds(probs, class_thresholds).cpu().numpy()
             else:
-                preds = torch.argmax(logits, dim=1).cpu().numpy()
+                preds = torch.argmax(probs, dim=1).cpu().numpy()
             suite.update(preds, targets)
     return suite.compute_metrics()
 
@@ -42,6 +49,7 @@ def main():
     parser.add_argument("--img-size", type=int, default=default_img_size)
     parser.add_argument("--batch-size", type=int, default=4)
     parser.add_argument("--max-batches", type=int, default=None)
+    parser.add_argument("--no-tta", action="store_true", help="Disable 3-view flip TTA during test evaluation")
     parser.add_argument("--out-report", type=str, default="models/checkpoints/test_benchmark_report.json")
     args = parser.parse_args()
 
@@ -76,9 +84,10 @@ def main():
     raw_thresh = CONFIG.get("model", {}).get("class_thresholds", {})
     class_thresholds = {int(k): float(v) for k, v in raw_thresh.items()} if raw_thresh else None
 
-    metrics_raw_4ch = evaluate_split(model, test_loader, device, use_rgb_ablation=False, class_thresholds=None, max_batches=args.max_batches)
-    metrics_4ch = evaluate_split(model, test_loader, device, use_rgb_ablation=False, class_thresholds=class_thresholds, max_batches=args.max_batches) if class_thresholds else metrics_raw_4ch
-    metrics_3ch = evaluate_split(model, test_loader, device, use_rgb_ablation=True, class_thresholds=class_thresholds, max_batches=args.max_batches)
+    use_tta = not args.no_tta
+    metrics_raw_4ch = evaluate_split(model, test_loader, device, use_rgb_ablation=False, class_thresholds=None, max_batches=args.max_batches, use_tta=use_tta)
+    metrics_4ch = evaluate_split(model, test_loader, device, use_rgb_ablation=False, class_thresholds=class_thresholds, max_batches=args.max_batches, use_tta=use_tta) if class_thresholds else metrics_raw_4ch
+    metrics_3ch = evaluate_split(model, test_loader, device, use_rgb_ablation=True, class_thresholds=class_thresholds, max_batches=args.max_batches, use_tta=use_tta)
 
     cal_gain = {
         "overall_pixel_accuracy_delta": round(metrics_4ch["overall_pixel_accuracy"] - metrics_raw_4ch["overall_pixel_accuracy"], 4),
@@ -95,6 +104,7 @@ def main():
     report = {
         "weights_path": weights_path,
         "img_size": args.img_size,
+        "use_tta": use_tta,
         "test_samples": len(test_loader.dataset),
         "class_thresholds": class_thresholds or {},
         "4ch_raw_argmax": metrics_raw_4ch,

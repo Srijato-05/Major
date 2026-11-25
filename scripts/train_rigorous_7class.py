@@ -40,6 +40,9 @@ def main():
     parser.add_argument("--patience", type=int, default=4)
     parser.add_argument("--max-batches", type=int, default=None)
     parser.add_argument("--save-dir", type=str, default="models/checkpoints")
+    parser.add_argument("--resume", type=str, default=None, help="Optional checkpoint path for warm-start fine-tuning")
+    parser.add_argument("--stage2-lr", type=float, default=None, help="Optional override for Stage 2 max LR")
+    parser.add_argument("--no-oversample-rare", action="store_true", help="Disable WeightedRandomSampler rare-class oversampling")
     parser.add_argument("--no-amp", action="store_true")
     args = parser.parse_args()
 
@@ -54,6 +57,7 @@ def main():
         img_size=(args.img_size, args.img_size),
         is_training=True,
         num_workers=0,
+        oversample_rare=not args.no_oversample_rare,
     )
     val_loader = build_multimodal_dataloader(
         split="val",
@@ -73,6 +77,18 @@ def main():
         use_amp=not args.no_amp,
         grad_accum_steps=args.grad_accum,
     )
+
+    if args.resume and os.path.exists(args.resume):
+        chk = torch.load(args.resume, map_location=trainer.device, weights_only=False)
+        sd = chk.get("model_state_dict", chk)
+        model_sd = trainer.model.state_dict()
+        filtered = {k: v for k, v in sd.items() if k in model_sd and model_sd[k].shape == v.shape}
+        trainer.model.load_state_dict(filtered, strict=False)
+        print(f"Resumed warm-start weights ({len(filtered)}/{len(model_sd)} tensors) from: {args.resume}")
+
+    if args.stage2_lr is not None:
+        trainer.cfg_train = dict(trainer.cfg_train)
+        trainer.cfg_train["stage2_lr_max"] = args.stage2_lr
 
     results = trainer.run_training_pipeline(
         dataloader=train_loader,

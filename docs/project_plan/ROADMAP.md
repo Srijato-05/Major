@@ -73,13 +73,13 @@ Although initial boilerplate, a DeepLabV3-ResNet50 checkpoint (`models/checkpoin
 ### Phase 3 — Physically Realistic Digital Twin & Pneumatic Actuation
 *Goal: Make tracking, kinematics, sorting, and purity physically meaningful.*
 
-- [ ] **Continuous Scrolling Conveyor Stream (`src/simulation/`, `data/sample_streams/`)**:
-  - Build a continuous conveyor compositor/streamer that scrolls real test-set e-waste fragments across the belt at `v_belt` (`1.0–4.0 m/s`), interleaving all 6 foreground classes so ByteTrack and Kalman velocity tracking operate continuously across frames.
-  - Align the belt travel axis (`x` vs. `y`) consistently across `configs/conveyor_config.yaml` and `src/kinematics/conveyor_motion.py`.
-- [ ] **Pneumatic Nozzle Scheduler & Item Lifecycle FSM in `src/`**:
-  - Port and adapt the nanosecond priority-queue actuator scheduler and item lifecycle FSM (`DETECTED → TRACKED → IN_TRANSIT → EJECTED / MISSED`) from `backend/core/` into `src/sorting/`, configured for the 64-nozzle manifold (`actuation_lag_ms`, `solenoid_pitch_mm`, `ejection_line_x_mm`).
-- [ ] **True Bin Purity % & Recovery Rate %**:
-  - Populate `bin_purity_scores` and per-bin recovery rates in `src/telemetry/advanced_telemetry_engine.py` by comparing predicted destination bins against ground-truth class labels during simulation.
+- [x] **Continuous Scrolling Conveyor Stream (`src/simulation/`)**:
+  - Built `ScrollingConveyorStream` (`src/simulation/conveyor_stream.py`) compositing unseen `test.json` e-waste cutouts across all 6 foreground classes onto a moving belt canvas at `v_belt` (`1.0–4.0 m/s`), wired into `ConveyorDigitalTwinSimulator` (`src/simulation/digital_twin.py`).
+  - Aligned the belt travel axis (`x-positive`) across `configs/conveyor_config.yaml` and `src/kinematics/conveyor_motion.py`.
+- [x] **Pneumatic Nozzle Scheduler & Item Lifecycle FSM in `src/`**:
+  - Built `PneumaticActuatorScheduler` & `ItemLifecycleRecord` FSM (`src/sorting/pneumatic_scheduler.py`) wired to the 64-nozzle manifold (`actuation_lag_ms`, `solenoid_pitch_mm`, `ejection_line_x_mm`).
+- [x] **True Bin Purity % & Recovery Rate %**:
+  - Added `record_sorting_accuracy()` in `src/telemetry/advanced_telemetry_engine.py`, populating `bin_purity_scores`, `class_recovery_rates`, and `overall_purity_pct`.
 
 ---
 

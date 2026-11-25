@@ -14,7 +14,7 @@ conveyor:
   sampling_rate_fps: 60          # Industrial camera frame acquisition rate (FPS)
 
   # Material flow & kinematics
-  conveyor_direction: "downstream" # "downstream" (y-positive) or "reverse"
+  conveyor_direction: "downstream" # "downstream" (x-positive) or "reverse"
   belt_friction_coefficient: 0.65
   belt_slip_noise_std: 0.02      # Small stochastic belt speed jitter (2%)
 

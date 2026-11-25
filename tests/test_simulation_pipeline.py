@@ -42,5 +42,47 @@ def test_digital_twin_simulator_single_frame():
 
     assert "annotated_frame" in res
     assert "telemetry" in res
+    assert "pneumatic_stats" in res
     assert "latency_ms" in res
     assert res["annotated_frame"].shape == (480, 640, 3)
+
+
+def test_pneumatic_scheduler_and_bin_purity():
+    from src.sorting.pneumatic_scheduler import PneumaticActuatorScheduler, ItemState
+
+    sched = PneumaticActuatorScheduler(
+        ejection_line_x_mm=1200.0,
+        actuation_lag_ms=2.5,
+        solenoid_pitch_mm=15.625,
+        total_nozzles=64,
+        speed_mps=2.5,
+    )
+    t0 = 1_000_000_000_000
+    assert sched.update_and_schedule(1, 3, 200.0, 156.25, "BIN_BATTERY_ISOLATION", now_ns=t0) is None
+    pulse = sched.update_and_schedule(1, 3, 200.0, 156.25, "BIN_BATTERY_ISOLATION", now_ns=t0 + 16_000_000)
+    assert pulse is not None
+    assert pulse.valve_idx == 10
+    assert sched.items[1].state == ItemState.IN_TRANSIT
+
+    due = sched.pop_due_pulses(now_ns=pulse.t_fire_ns)
+    assert len(due) == 1
+    assert sched.items[1].state == ItemState.EJECTED
+
+    telem = AdvancedTelemetryEngine()
+    telem.record_sorting_accuracy("BIN_BATTERY_ISOLATION", predicted_class_id=3, gt_class_id=3)
+    telem.record_sorting_accuracy("BIN_BATTERY_ISOLATION", predicted_class_id=3, gt_class_id=5)
+    m = telem.get_dashboard_metrics()
+    assert m["bin_purity_scores"]["BIN_BATTERY_ISOLATION"] == 50.0
+    assert m["class_recovery_rates"][3] == 100.0
+
+
+def test_scrolling_conveyor_stream():
+    from src.simulation.conveyor_stream import ScrollingConveyorStream
+
+    stream = ScrollingConveyorStream(manifest_path="data/processed/test.json", speed_mps=2.5, fps=30)
+    rgb1, spec1, gt1 = stream.step()
+    rgb2, spec2, gt2 = stream.step()
+    assert rgb1.shape == (640, 640, 3)
+    assert spec1.shape == (640, 640)
+    assert gt1.shape == (640, 640)
+    assert not np.array_equal(rgb1, rgb2)

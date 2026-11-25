@@ -97,21 +97,21 @@ taxonomy:
       5: 6
       6: 4
 model:
-  architecture: multimodal_4ch_deeplabv3
-  backbone_pretrained: DeepLabV3_ResNet50_Weights.DEFAULT
+  architecture: fpn_mit_b2
+  backbone_pretrained: imagenet
   num_classes: 7
   in_channels: 4
-  img_size: 384
+  img_size: 512
   conf_threshold: 0.35
   iou_threshold: 0.5
   max_det: 100
   class_thresholds:
-    1: 0.36
-    2: 0.76
-    3: 0.38
-    4: 0.58
-    5: 0.59
-    6: 0.88
+    1: 0.68
+    2: 0.54
+    3: 0.36
+    4: 0.55
+    5: 0.32
+    6: 0.59
 training:
   stage1_freeze_epochs: 10
   stage1_lr: 0.001
